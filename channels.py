@@ -3,6 +3,7 @@ import pandas as pd
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from datetime import datetime
+from google.cloud import storage
 
 # Path to your service account key file
 KEY_FILE_LOCATION = 'alookso-347923-6a4fe97bbc31.json'
@@ -15,6 +16,11 @@ credentials = service_account.Credentials.from_service_account_file(KEY_FILE_LOC
 
 # Initialize the YouTube API client
 youtube = build('youtube', 'v3', credentials=credentials)
+
+# Initialize Google Cloud Storage client
+storage_client = storage.Client(credentials=credentials)
+bucket_name = 'minju-youtube'
+bucket = storage_client.bucket(bucket_name)
 
 def get_channel_info(channel_id):
     request = youtube.channels().list(
@@ -40,23 +46,23 @@ def get_channel_info(channel_id):
     else:
         return None
 
-def save_channel_info_to_csv(party_name, channel_id, channel_info):
-    # Ensure the directory exists
-    output_dir = 'data/channels'
-    os.makedirs(output_dir, exist_ok=True)
-
+def save_channel_info_to_gcs(party_name, channel_id, channel_info):
     # Get current date
     current_date = datetime.now().strftime('%Y%m%d')
 
     # Create filename
-    output_file = os.path.join(output_dir, f'{party_name}_{channel_id}_{current_date}_channels.csv')
+    file_name = f'{party_name}_{channel_id}_{current_date}_channels.csv'
 
     # Convert channel_info to DataFrame
     df = pd.DataFrame([channel_info])
 
-    # Save to CSV
-    df.to_csv(output_file, index=False)
-    print(f'Channel info for {party_name} saved to {output_file}')
+    # Save DataFrame to a CSV file in memory
+    csv_data = df.to_csv(index=False)
+
+    # Upload the CSV file to GCS
+    blob = bucket.blob(f'channels/{file_name}')
+    blob.upload_from_string(csv_data, content_type='text/csv')
+    print(f'Channel info for {party_name} saved to gs://{bucket_name}/channels/{file_name}')
 
 # List of channel IDs with party names
 channel_ids = [
@@ -74,7 +80,6 @@ channel_ids = [
 for party_name, channel_id in channel_ids:
     channel_info = get_channel_info(channel_id)
     if channel_info:
-        save_channel_info_to_csv(party_name, channel_id, channel_info)
+        save_channel_info_to_gcs(party_name, channel_id, channel_info)
     else:
         print(f"Channel {channel_id} not found.")
-
