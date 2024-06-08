@@ -6,7 +6,7 @@ from datetime import datetime
 from google.cloud import storage
 
 # Path to your service account key file
-KEY_FILE_LOCATION = 'alookso-347923-6a4fe97bbc31.json'
+KEY_FILE_LOCATION = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
 
 # Scopes required by the YouTube Data API v3
 SCOPES = ['https://www.googleapis.com/auth/youtube.readonly']
